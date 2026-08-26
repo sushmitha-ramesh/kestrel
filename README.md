@@ -107,6 +107,13 @@ kestrel doctor
 
 The mock demo requires no API key, AWS account, or network access. The safe example produces `APPROVE`; the risky example produces `BLOCK`.
 
+Kestrel's offline mode applies to reviewing an existing plan. Generating a new Terraform plan may still require internet or AWS access when providers or modules must be downloaded, data sources read AWS, credentials are validated, remote state is accessed, or infrastructure is refreshed. Generate and save the plan in an environment with those prerequisites, then review the exported JSON offline:
+
+```bash
+terraform show -json saved-plan.tfplan > plan.json
+kestrel analyze plan.json --mock --no-aws
+```
+
 ## Using Kestrel
 
 This is the shortest path for someone trying Kestrel for the first time.
@@ -145,7 +152,7 @@ terraform show -json tfplan > plan.json
 kestrel analyze plan.json --mock --no-aws
 ```
 
-This performs a plan-only review. AWS access and an external LLM are optional.
+This performs a plan-only review of a plan that was generated previously. AWS access and an external LLM are optional for this review step, but Terraform itself may have needed provider, module, state, or AWS access when the plan was created.
 
 ### 4. Choose an LLM provider
 
