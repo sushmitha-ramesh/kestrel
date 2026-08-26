@@ -107,6 +107,99 @@ kestrel doctor
 
 The mock demo requires no API key, AWS account, or network access. The safe example produces `APPROVE`; the risky example produces `BLOCK`.
 
+## Using Kestrel
+
+This is the shortest path for someone trying Kestrel for the first time.
+
+### 1. Install Kestrel
+
+```bash
+git clone https://github.com/sushmitha-ramesh/kestrel.git
+cd kestrel
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+```
+
+### 2. Run the offline examples
+
+These commands need no AWS account, API key, or network access:
+
+```bash
+kestrel analyze examples/safe-plan.json --mock --no-aws
+# APPROVE
+
+kestrel analyze examples/risky-plan.json --mock --no-aws
+# BLOCK
+```
+
+The risky example demonstrates findings such as public SSH access, public S3 access, and unsafe database configuration.
+
+### 3. Analyze a real Terraform plan
+
+Run these commands from the Terraform project that you want to review:
+
+```bash
+terraform plan -out=tfplan
+terraform show -json tfplan > plan.json
+kestrel analyze plan.json --mock --no-aws
+```
+
+This performs a plan-only review. AWS access and an external LLM are optional.
+
+### 4. Choose an LLM provider
+
+Set one provider before analyzing the plan:
+
+```bash
+# Anthropic
+export KESTREL_LLM_PROVIDER=anthropic
+export ANTHROPIC_API_KEY=your-api-key
+
+# OpenAI Chat Completions
+export KESTREL_LLM_PROVIDER=openai
+export OPENAI_API_KEY=your-api-key
+
+# Codex-compatible OpenAI Responses API
+export KESTREL_LLM_PROVIDER=codex
+export CODEX_API_KEY=your-api-key
+
+# Local Ollama
+export KESTREL_LLM_PROVIDER=ollama
+```
+
+Then run:
+
+```bash
+kestrel analyze plan.json --no-aws
+```
+
+Use `--mock --no-aws` when you want a completely offline run.
+
+### 5. Add read-only AWS evidence
+
+AWS inspection is optional. Configure a profile and region using the permissions in [iam/kestrel-readonly-policy.json](iam/kestrel-readonly-policy.json):
+
+```bash
+export AWS_PROFILE=kestrel-read-only
+export AWS_REGION=us-east-1
+kestrel analyze plan.json
+```
+
+Kestrel can inspect supported AWS context, but it cannot apply Terraform, modify AWS resources, or execute arbitrary commands.
+
+### 6. Use the JSON result in CI/CD
+
+```bash
+kestrel analyze plan.json --mock --no-aws --json > verdict.json
+```
+
+The report includes the verdict, findings, confidence, remediation guidance, agent steps, and execution metadata. The verdicts mean:
+
+- `APPROVE`: no blocking findings were identified.
+- `REVIEW`: a high-severity issue needs human review.
+- `BLOCK`: a critical issue should be fixed before deployment.
+
 ### OpenAI-Compatible API
 
 Use the hosted OpenAI API or any server that exposes an OpenAI-compatible chat-completions endpoint:
