@@ -7,7 +7,9 @@ from pydantic import ValidationError
 
 from kestrel.agent.planner import run_loop
 from kestrel.aws.client import AwsClient
+from kestrel.llm.anthropic import AnthropicProvider
 from kestrel.llm.base import AgentContext, Decision
+from kestrel.llm.codex import CodexProvider
 from kestrel.llm.ollama import OllamaProvider
 from kestrel.llm.openai import OpenAIProvider
 from kestrel.llm.providers import provider_for
@@ -145,6 +147,44 @@ def test_openai_provider_parses_structured_decision(monkeypatch: pytest.MonkeyPa
 
 def test_provider_for_selects_openai_provider() -> None:
     assert isinstance(provider_for("openai"), OpenAIProvider)
+
+
+def test_anthropic_provider_parses_structured_decision(monkeypatch: pytest.MonkeyPatch) -> None:
+    response = httpx.Response(200, request=httpx.Request("POST", "http://test"),
+                              json={"content": [{"type": "text", "text": json.dumps({
+                                  "kind": "final", "tool_name": None, "arguments": {},
+                                  "rationale": "No more evidence needed"})}]})
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def post(url: str, **kwargs: Any) -> httpx.Response:
+        calls.append((url, kwargs))
+        return response
+
+    monkeypatch.setattr(httpx, "post", post)
+    decision = AnthropicProvider(base_url="http://test", model="claude-test",
+                                 api_key="test-key").decide(AgentContext([], [], [], {}))
+    assert decision.kind == "final"
+    assert calls[0][0] == "http://test/v1/messages"
+    assert calls[0][1]["headers"]["x-api-key"] == "test-key"
+
+
+def test_codex_provider_parses_responses_api_decision(monkeypatch: pytest.MonkeyPatch) -> None:
+    response = httpx.Response(200, request=httpx.Request("POST", "http://test"),
+                              json={"output_text": json.dumps({
+                                  "kind": "tool", "tool_name": "terraform.summary",
+                                  "arguments": {}, "rationale": "Inspect plan scope"})})
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def post(url: str, **kwargs: Any) -> httpx.Response:
+        calls.append((url, kwargs))
+        return response
+
+    monkeypatch.setattr(httpx, "post", post)
+    decision = CodexProvider(base_url="http://test/v1", model="gpt-test",
+                             api_key="test-key").decide(AgentContext([], [], [], {}))
+    assert decision.tool_name == "terraform.summary"
+    assert calls[0][0] == "http://test/v1/responses"
+    assert calls[0][1]["json"]["model"] == "gpt-test"
 
 
 class StubSession:

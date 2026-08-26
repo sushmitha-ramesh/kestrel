@@ -19,4 +19,10 @@ def provider_for(name: str) -> Provider:
     if name == "openai":
         from .openai import OpenAIProvider
         return OpenAIProvider()
+    if name == "anthropic":
+        from .anthropic import AnthropicProvider
+        return AnthropicProvider()
+    if name == "codex":
+        from .codex import CodexProvider
+        return CodexProvider()
     return UnavailableProvider(name)

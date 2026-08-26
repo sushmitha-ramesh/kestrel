@@ -87,7 +87,8 @@ flowchart TB
 - Deterministic rules for public SSH/RDP, wildcard IAM, S3 exposure, encryption removal, and destructive changes.
 - Bounded structured agent loop with concise action rationales, no private chain-of-thought, and no arbitrary shell execution.
 - Optional boto3 AWS evidence access for EC2, S3, IAM, and RDS using an explicit read-only IAM policy.
-- Offline mock provider, Rich terminal output, JSON reports, and a Typer CLI.
+- OpenAI Chat Completions, OpenAI Responses/Codex, Anthropic Messages, Ollama, and offline mock providers.
+- Rich terminal output, JSON reports, and a Typer CLI.
 
 ## Installation and Quick Start
 
@@ -118,6 +119,44 @@ kestrel analyze plan.json
 ```
 
 `OPENAI_BASE_URL` defaults to `https://api.openai.com/v1`. Set it to a local or other compatible server, such as `http://localhost:8000/v1`; the API key may be omitted for servers that do not require authentication. Keep API keys out of plan files and source control.
+
+### Anthropic
+
+Kestrel supports Anthropic's Messages API:
+
+```bash
+export KESTREL_LLM_PROVIDER=anthropic
+export ANTHROPIC_API_KEY=your-api-key
+export ANTHROPIC_MODEL=claude-3-5-haiku-latest
+kestrel analyze plan.json
+```
+
+The adapter uses `POST /v1/messages` and converts Anthropic's text response into Kestrel's structured `Decision` contract.
+
+### Codex and OpenAI Responses API
+
+For Codex-compatible OpenAI models, use the Responses API adapter:
+
+```bash
+export KESTREL_LLM_PROVIDER=codex
+export CODEX_API_KEY=your-api-key
+export CODEX_MODEL=gpt-5-codex
+kestrel analyze plan.json
+```
+
+The adapter uses `POST /v1/responses`. `CODEX_BASE_URL` can point to a compatible gateway; when it is not set, Kestrel falls back to `OPENAI_BASE_URL` and then `https://api.openai.com/v1`.
+
+### Provider Support
+
+| Provider value | API | Required configuration |
+|---|---|---|
+| `mock` | Offline deterministic demo | None |
+| `openai` | OpenAI Chat Completions | `OPENAI_API_KEY`, `OPENAI_MODEL` |
+| `codex` | OpenAI Responses API | `CODEX_API_KEY`, `CODEX_MODEL` |
+| `anthropic` | Anthropic Messages API | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` |
+| `ollama` | Ollama local chat API | `OLLAMA_BASE_URL`, `OLLAMA_MODEL` |
+
+All providers return the same structured decision format. Provider-specific model capabilities and endpoint compatibility still apply, so test your selected model with the offline suite and a representative plan before using it in CI.
 
 ## Agent Workflow
 
