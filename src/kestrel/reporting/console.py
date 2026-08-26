@@ -2,7 +2,7 @@ from kestrel.risk.models import RiskReport
 
 
 def render_console(report: RiskReport) -> str:
-    lines = ["Kestrel Infrastructure Review", "", f"FINAL VERDICT: {report.verdict}", ""]
+    lines = ["Kestrel - Infrastructure Security AI Agent", "", f"FINAL VERDICT: {report.verdict}", ""]
     for finding in report.findings:
         lines.append(f"[{finding.severity.name}] {finding.title} ({finding.rule_id}) "
                  f"Confidence: {finding.confidence}%")

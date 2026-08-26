@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "kestrel"
 version = "0.1.0"
-description = "Deterministic Terraform plan risk analysis with a bounded read-only agent loop."
+description = "Kestrel - Infrastructure Security AI Agent for Terraform and AWS."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }

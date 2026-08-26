@@ -1,6 +1,6 @@
-# Kestrel
+# Kestrel - Infrastructure Security AI Agent
 
-Kestrel is an evidence-first AI infrastructure security agent that reviews Terraform changes before they reach AWS. It combines deterministic security checks with a bounded investigation loop that can gather additional, read-only context from Terraform and AWS.
+Kestrel is an Infrastructure Security AI Agent that reviews Terraform changes before they reach AWS. It combines deterministic security checks with a bounded investigation loop that can gather additional, read-only context from Terraform and AWS.
 
 The goal is practical: catch risky infrastructure changes early, explain what needs attention, and return a clear `APPROVE`, `REVIEW`, or `BLOCK` decision. Kestrel can investigate, but it cannot change infrastructure or bypass its safety rules.
 
