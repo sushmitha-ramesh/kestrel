@@ -1,0 +1,1 @@
+"""LLM interfaces and deliberately small provider adapters."""

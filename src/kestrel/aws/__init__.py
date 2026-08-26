@@ -1,0 +1,1 @@
+"""Optional AWS read-only integration."""

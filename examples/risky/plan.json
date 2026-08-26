@@ -1,0 +1,9 @@
+{
+  "format_version": "1.2",
+  "resource_changes": [
+    {"address": "aws_security_group_rule.admin", "type": "aws_security_group_rule", "change": {"actions": ["create"], "after": {"type": "ingress", "from_port": 22, "to_port": 22, "cidr_blocks": ["0.0.0.0/0"], "password": "never-output"}}},
+    {"address": "aws_iam_policy.admin", "type": "aws_iam_policy", "change": {"actions": ["create"], "after": {"policy": {"Statement": [{"Action": "*", "Resource": "*"}]}}}},
+    {"address": "aws_s3_bucket_public_access_block.data", "type": "aws_s3_bucket_public_access_block", "change": {"actions": ["update"], "before": {"block_public_acls": true}, "after": {"block_public_acls": false}}},
+    {"address": "aws_db_instance.legacy", "type": "aws_db_instance", "change": {"actions": ["delete", "create"], "before": {"storage_encrypted": true}, "after": {"instance_class": "db.t3.small"}}}
+  ]
+}

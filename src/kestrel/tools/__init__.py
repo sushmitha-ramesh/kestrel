@@ -1,0 +1,1 @@
+"""Read-only tools available to the bounded agent."""

@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "KestrelReadOnlyInvestigation",
+    "Effect": "Allow",
+    "Action": [
+      "sts:GetCallerIdentity",
+      "ec2:DescribeInstances",
+      "ec2:DescribeSecurityGroups",
+      "elasticloadbalancing:DescribeTargetGroups",
+      "elasticloadbalancing:DescribeTargetHealth",
+      "autoscaling:DescribeAutoScalingGroups",
+      "rds:DescribeDBInstances",
+      "s3:GetPublicAccessBlock",
+      "s3:GetBucketEncryption",
+      "s3:GetBucketVersioning",
+      "iam:GetRole",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListRolePolicies"
+    ],
+    "Resource": "*"
+  }]
+}
