@@ -1,26 +1,38 @@
 # Kestrel
 
-Kestrel is an evidence-first AI infrastructure agent that reviews Terraform changes, investigates AWS architecture using strictly read-only tools, and produces security and reliability recommendations before infrastructure is deployed.
+Kestrel is an evidence-first AI infrastructure agent that reviews Terraform changes before they reach AWS. It combines straightforward security checks with a small, read-only investigation loop that can gather useful context from EC2, S3, IAM, RDS, and Terraform.
 
-It is an AI agent, not simply an LLM wrapper. Kestrel observes a redacted plan, chooses from a bounded registry of structured tools, observes their results, and repeats until it has enough evidence for an `APPROVE`, `REVIEW`, or `BLOCK` verdict. Deterministic safeguards remain outside the model and cannot be overridden.
+The aim is practical: catch risky infrastructure changes early, explain what needs attention, and give engineers a clear `APPROVE`, `REVIEW`, or `BLOCK` result before deployment. Kestrel can investigate, but it cannot change infrastructure or bypass its safety rules.
 
-## Why Kestrel?
+## What Problem Does It Solve?
 
-Terraform describes the intended infrastructure change, but a plan may not contain enough context to assess the real security and operational impact. Kestrel separates that problem into two parts:
+Terraform tells us what is about to change, but a plan does not always tell us whether that change is safe in its wider AWS context. Kestrel addresses both sides of that review:
 
-- **Objective risk detection** is handled by deterministic rules that are explainable, testable, and independent of model availability.
-- **Context gathering** is handled by a bounded AI agent that can request additional evidence through approved, read-only tools.
+- **Known risks** are detected by deterministic rules that are easy to explain, test, and review.
+- **Missing context** can be investigated by an AI agent using a small set of approved, read-only tools.
 
-The result is an infrastructure review assistant designed for CI/CD and human review, not an autonomous deployment system. Kestrel has no Terraform apply path, no write-capable AWS tools, and no arbitrary shell execution.
+This makes Kestrel useful both locally and in CI/CD. It is an infrastructure review assistant, not an autonomous deployment system: there is no Terraform apply path, no write-capable AWS tool, and no arbitrary shell execution.
+
+## Start Here
+
+You can try Kestrel without an AWS account, API key, or network access:
+
+```bash
+python -m pip install -e .
+kestrel analyze examples/safe-plan.json --mock --no-aws
+kestrel analyze examples/risky-plan.json --mock --no-aws
+```
+
+The safe example returns `APPROVE`. The risky example returns `BLOCK` and shows the findings that led to that decision. Once the basic flow is clear, you can analyze a real Terraform plan or enable live AWS evidence.
 
 ## Key Guarantees
 
-- **Deterministic first**: known-dangerous patterns are evaluated before any model call.
-- **Bounded autonomy**: the LangGraph loop is limited by `KESTREL_MAX_AGENT_STEPS`.
-- **Capability boundaries**: the model can select only registered tools with validated schemas.
-- **Least privilege**: AWS access uses a dedicated read-only IAM policy.
-- **Fail-closed decisions**: an LLM response cannot downgrade a deterministic `CRITICAL` finding.
-- **Evidence minimization**: secret-like values are redacted before storage or provider calls.
+- **Deterministic first**: known-dangerous patterns are checked before any model call.
+- **Limited investigation**: the LangGraph loop has a configurable maximum number of steps.
+- **Explicit tools**: the model can use only tools that Kestrel registers and validates.
+- **Read-only AWS access**: the supplied IAM policy grants inspection permissions only.
+- **Safety rules stay in control**: a model response cannot downgrade a deterministic `CRITICAL` finding.
+- **Secrets are handled carefully**: secret-like values are redacted before evidence is stored or sent to a provider.
 
 ## Architecture
 
@@ -56,18 +68,18 @@ flowchart TB
   POLICY -->|CRITICAL findings| BLOCK
 ```
 
-### Core Components
+### How the Pieces Fit Together
 
 | Component | Implementation | Responsibility |
 |---|---|---|
-| Terraform boundary | `terraform/` | Parse plan JSON and normalize resource changes |
-| Redaction boundary | `terraform/evidence.py` | Remove secret-like values before evidence or provider calls |
-| Risk engine | `risk/rules.py` | Apply explainable security rules and produce findings |
-| Agent orchestration | `agent/planner.py` | Run the bounded LangGraph observe-decide-act loop |
-| Capability boundary | `tools/` | Register tools and validate input/output contracts |
-| AWS evidence | `aws/` | Call only supported read-only boto3 APIs |
-| Provider adapters | `llm/` | Support OpenAI-compatible, Ollama, and mock providers |
-| Reporting | `reporting/` | Render console and machine-readable JSON results |
+| Terraform parsing | `terraform/` | Read plan JSON and normalize resource changes |
+| Secret redaction | `terraform/evidence.py` | Remove sensitive values before they travel further |
+| Risk checks | `risk/rules.py` | Apply explainable rules and create findings |
+| Agent loop | `agent/planner.py` | Run the bounded LangGraph investigation cycle |
+| Tool registry | `tools/` | Register tools and validate their inputs and outputs |
+| AWS evidence | `aws/` | Call supported read-only boto3 APIs |
+| Model providers | `llm/` | Support OpenAI-compatible, Ollama, and mock providers |
+| Reporting | `reporting/` | Render terminal and JSON results |
 
 ## Features
 
@@ -109,12 +121,14 @@ kestrel analyze plan.json
 
 ## Agent Workflow
 
-1. Parse and redact the plan.
-2. Run deterministic risk rules before any model call.
-3. Give the provider summarized context and registered tool definitions.
-4. Validate decisions, execute only read-only tools, and append observations.
-5. Stop at a final decision or `KESTREL_MAX_AGENT_STEPS` (default 8).
-6. Apply authoritative verdict policy: critical findings always block.
+Kestrel follows a predictable sequence on every run:
+
+1. Read the Terraform plan and redact secret-like values.
+2. Run deterministic risk checks before making any model call.
+3. Give the provider a summary of the plan, findings, and available tools.
+4. Validate the provider's decision and, when requested, run a read-only tool.
+5. Add the tool result to the investigation and repeat until the agent finishes or the step limit is reached.
+6. Apply the final verdict policy. Critical findings always result in `BLOCK`.
 
 ### Detailed Workflow
 
@@ -142,15 +156,23 @@ Phase 3: Authoritative policy and reporting
     -> render console output or JSON report
 ```
 
-The model is used for investigation and prioritization. It is not trusted with permissions, execution, or the final safety invariant. This lets Kestrel benefit from agentic reasoning while keeping the security boundary in code that can be reviewed and tested.
+The model is used for investigation and prioritization. It does not receive AWS credentials, permissions, or arbitrary execution. This gives Kestrel the useful part of agentic reasoning while keeping the important safety decisions in code that can be reviewed and tested.
 
 ## AWS Read-Only Setup
 
-Configure `AWS_PROFILE` and `AWS_REGION`, or pass `--aws-profile` and `--region`. Attach [iam/kestrel-readonly-policy.json](iam/kestrel-readonly-policy.json) to a dedicated investigation role. The custom policy grants only describe, alarm, and caller-identity actions. Kestrel has no apply path, write API, or arbitrary command tool.
+AWS access is optional. Use `--no-aws` for a plan-only review, or configure `AWS_PROFILE` and `AWS_REGION` when live context is useful. You can also pass `--aws-profile` and `--region` directly.
+
+For live inspection, attach [iam/kestrel-readonly-policy.json](iam/kestrel-readonly-policy.json) to a dedicated investigation role. The policy grants inspection actions only, including caller identity, EC2 descriptions, S3 configuration reads, IAM role inspection, RDS descriptions, and CloudWatch alarm descriptions. Kestrel has no apply path, write API, or arbitrary command tool.
 
 ## JSON Output
 
 `--json` emits `verdict`, `summary`, `findings`, `agent_steps`, and `metadata`. Secret-like values become `[REDACTED]` before evidence is stored or sent to a provider.
+
+The verdict is intentionally easy to consume in automation:
+
+- `APPROVE`: no blocking findings were identified.
+- `REVIEW`: a high-severity issue needs a person to make the call.
+- `BLOCK`: at least one critical issue should be fixed before deployment.
 
 ## Limitations and Scope
 
@@ -168,6 +190,15 @@ These limitations are deliberate: V1 prioritizes bounded behavior, explainabilit
 ## Project Structure
 
 `src/kestrel` separates Terraform parsing, deterministic risk analysis, agent state and prompts, tool capabilities, AWS access, LLM adapters, and reporting. Examples, tests, IAM policy, security documentation, and GitHub templates live at the repository root.
+
+Most contributors will start in these files:
+
+- `src/kestrel/cli.py`: connects the pieces and defines the command-line interface.
+- `src/kestrel/risk/rules.py`: adds or changes deterministic security checks.
+- `src/kestrel/agent/planner.py`: controls the LangGraph investigation loop.
+- `src/kestrel/tools/registry.py`: enforces which tools the agent is allowed to use.
+- `src/kestrel/aws/client.py`: contains read-only AWS API wrappers.
+- `tests/`: shows the expected behavior and is the best place to add regression coverage.
 
 ## Development and Testing
 
