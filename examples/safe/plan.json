@@ -1,7 +1,0 @@
-{
-  "format_version": "1.2",
-  "resource_changes": [
-    {"address": "aws_s3_bucket.data", "type": "aws_s3_bucket", "change": {"actions": ["create"], "after": {"server_side_encryption_configuration": {"rule": {"apply_server_side_encryption_by_default": {"sse_algorithm": "aws:kms"}}}}}},
-    {"address": "aws_security_group_rule.web", "type": "aws_security_group_rule", "change": {"actions": ["create"], "after": {"from_port": 443, "to_port": 443, "cidr_blocks": ["10.0.0.0/8"]}}}
-  ]
-}
