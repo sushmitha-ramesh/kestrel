@@ -183,7 +183,7 @@ See [docs/architecture.md](docs/architecture.md), [docs/agent-loop.md](docs/agen
 
 V2 may add CloudLens architecture discovery across Route53, ALB, EC2/Auto Scaling, and RDS. V3 may combine change and architecture reasoning for confirmed outage risk. V4 may add GitHub pull-request reviews. These capabilities are intentionally not part of V1.
 
-## LinkedIn Summary
+## Summary
 
 **Kestrel is a production-oriented, evidence-first AI infrastructure security agent for Terraform.** I built it with Python, LangGraph, Pydantic, boto3, and typed provider adapters to review infrastructure changes before deployment.
 
