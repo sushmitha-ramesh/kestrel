@@ -105,38 +105,29 @@ kestrel analyze examples/risky-plan.json --mock
 kestrel doctor
 ```
 
-The mock demo requires no API key, AWS account, or network access. The safe example produces `APPROVE`; the risky example produces `BLOCK`.
 
-Kestrel's offline mode applies to reviewing an existing plan. Generating a new Terraform plan may still require internet or AWS access when providers or modules must be downloaded, data sources read AWS, credentials are validated, remote state is accessed, or infrastructure is refreshed. Generate and save the plan in an environment with those prerequisites, then review the exported JSON offline:
-
-```bash
-terraform show -json saved-plan.tfplan > plan.json
-kestrel analyze plan.json --mock --no-aws
-```
-
-## Using Kestrel
-
-This is the shortest path for someone trying Kestrel for the first time.
-
-### 1. Install Kestrel
-
-```bash
-git clone https://github.com/sushmitha-ramesh/kestrel.git
-cd kestrel
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e .
-```
-
-### 2. Run the offline examples
-
-These commands need no AWS account, API key, or network access:
-
-```bash
-kestrel analyze examples/safe-plan.json --mock --no-aws
+  PLAN[Terraform plan JSON] --> REDACT[Parse and redact secrets]
+  REDACT --> RULES[Deterministic risk engine]
+  RULES -->|Findings and plan summary| STATE[LangGraph agent state]
+  STATE --> MODEL[LLM provider<br/>OpenAI / Codex / Anthropic / Ollama / Mock]
+  MODEL -->|Structured decision| REGISTRY[Tool registry<br/>Validated read-only tools]
+  REGISTRY --> AWS[AWS evidence<br/>EC2 / S3 / IAM / RDS]
+  REGISTRY --> TF[Terraform evidence]
+  AWS --> OBS[Redacted observation]
+  TF --> OBS
+  OBS --> STATE
+  STATE -->|Final decision or step limit| POLICY[Authoritative verdict policy]
+  RULES --> POLICY
+  POLICY --> REPORT[Console or JSON report]
+  POLICY --> APPROVE[APPROVE]
+  POLICY --> REVIEW[REVIEW]
+  POLICY --> BLOCK[BLOCK]
+  POLICY -.->|CRITICAL always| BLOCK
 # APPROVE
 
-kestrel analyze examples/risky-plan.json --mock --no-aws
+The agent may gather more evidence even when deterministic findings already exist. The final policy remains authoritative: critical findings always produce `BLOCK`, high findings produce `REVIEW` when no critical finding exists, and otherwise the result is `APPROVE`.
+
+### How the Pieces Fit Together
 # BLOCK
 ```
 
