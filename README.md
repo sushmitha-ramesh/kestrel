@@ -84,21 +84,6 @@ Findings include a rule ID, severity, confidence percentage, affected resource, 
 | No critical findings, but one or more `HIGH` findings | `REVIEW` |
 | No blocking findings | `APPROVE` |
 
-## How Kestrel Is an AI Agent
-
-Kestrel is not a one-shot LLM summary. It follows a bounded observe, decide, act, and observe cycle:
-
-```text
-Observe the redacted plan and deterministic findings
-  -> decide whether more evidence is needed
-  -> select an approved structured tool
-  -> execute the read-only tool
-  -> observe its redacted result
-  -> repeat until done or the step limit is reached
-```
-
-LangGraph stores the current observations, round count, and final state. Each provider returns a structured decision. The model can investigate and prioritize, but it does not receive AWS credentials or control the final safety policy.
-
 ## Installation and Usage
 
 ### Prerequisites
