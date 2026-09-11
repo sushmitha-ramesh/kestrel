@@ -29,28 +29,9 @@ The risky example demonstrates findings such as public SSH access, public S3 acc
 
 ## Architecture
 
-```mermaid
-flowchart TB
-  PLAN[Terraform plan JSON] --> REDACT[Parse and redact secrets]
-  REDACT --> RULES[Deterministic risk engine]
-  RULES -->|Findings and plan summary| STATE[LangGraph agent state]
-  STATE --> MODEL[LLM provider<br/>OpenAI / Codex / Anthropic / Ollama / Mock]
-  MODEL -->|Structured decision| REGISTRY[Tool registry<br/>Validated read-only tools]
-  REGISTRY --> AWS[AWS evidence<br/>EC2 / S3 / IAM / RDS]
-  REGISTRY --> TF[Terraform evidence]
-  AWS --> OBS[Redacted observation]
-  TF --> OBS
-  OBS --> STATE
-  STATE -->|Final decision or step limit| POLICY[Authoritative verdict policy]
-  RULES --> POLICY
-  POLICY --> REPORT[Console or JSON report]
-  POLICY --> APPROVE[APPROVE]
-  POLICY --> REVIEW[REVIEW]
-  POLICY --> BLOCK[BLOCK]
-  POLICY -.->|CRITICAL always| BLOCK
-```
+![Kestrel architecture infographic](docs/kestrel-architecture.svg)
 
-The agent may gather more evidence even when deterministic findings already exist. The final policy remains authoritative: critical findings always produce `BLOCK`, high findings produce `REVIEW` when no critical finding exists, and otherwise the result is `APPROVE`.
+The infographic follows the implemented `kestrel analyze` workflow. The CLI loads and redacts a Terraform plan, deterministic rules calculate the verdict, and the bounded LangGraph agent optionally gathers evidence through validated read-only tools. Agent observations are added to the console or JSON report; they do not downgrade the deterministic verdict. `KESTREL_MAX_AGENT_STEPS` limits the investigation loop.
 
 ### How the Pieces Fit Together
 
