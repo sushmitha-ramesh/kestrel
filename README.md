@@ -29,7 +29,10 @@ The risky example demonstrates findings such as public SSH access, public S3 acc
 
 ## Architecture
 
-![Kestrel architecture infographic](docs/kestrel-architecture.svg)
+<picture>
+	<source media="(prefers-color-scheme: dark)" srcset="docs/kestrel-architecture-dark.svg">
+	<img src="docs/kestrel-architecture.svg" alt="Kestrel infrastructure security architecture infographic">
+</picture>
 
 The infographic follows the implemented `kestrel analyze` workflow. The CLI loads and redacts a Terraform plan, deterministic rules calculate the verdict, and the bounded LangGraph agent optionally gathers evidence through validated read-only tools. Agent observations are added to the console or JSON report; they do not downgrade the deterministic verdict. `KESTREL_MAX_AGENT_STEPS` limits the investigation loop.
 

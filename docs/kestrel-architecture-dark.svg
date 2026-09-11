@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="820" viewBox="0 0 1440 820" role="img" aria-labelledby="title desc">
+  <title id="title">Kestrel infrastructure security agent architecture, dark theme</title>
+  <desc id="desc">Dark theme of the Kestrel architecture infographic. Terraform plan input flows through secret redaction and deterministic risk rules into a bounded read-only investigation loop and final report.</desc>
+  <image href="kestrel-architecture.svg" x="0" y="0" width="1440" height="820"
+         style="filter: invert(.88) hue-rotate(180deg) saturate(.82) brightness(.78) contrast(1.08)"/>
+</svg>
