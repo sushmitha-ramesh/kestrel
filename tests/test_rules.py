@@ -34,6 +34,28 @@ def test_s3_public_acl_and_rds_exposure_are_detected() -> None:
     assert report.verdict == "BLOCK"
 
 
+def test_s3_data_loss_is_detected_without_public_access() -> None:
+    plan = parse_plan({"resource_changes": [{
+        "address": "aws_s3_bucket.data", "type": "aws_s3_bucket",
+        "change": {"actions": ["create"], "after": {"force_destroy": True}}
+    }]})
+    report = evaluate(plan)
+    assert "S3-PUBLIC" not in {finding.rule_id for finding in report.findings}
+    assert "S3-DATA-LOSS" in {finding.rule_id for finding in report.findings}
+
+
+def test_s3_lifecycle_data_loss_is_detected() -> None:
+    plan = parse_plan({"resource_changes": [{
+        "address": "aws_s3_bucket_lifecycle_configuration.data",
+        "type": "aws_s3_bucket_lifecycle_configuration",
+        "change": {"actions": ["create"], "after": {"rule": [{"expiration": {"days": 1}}]}}
+    }]})
+    report = evaluate(plan)
+    finding = next(finding for finding in report.findings
+                   if finding.rule_id == "S3-LIFECYCLE-DATA-LOSS")
+    assert finding.severity.name == "CRITICAL"
+
+
 def test_ec2_public_ip_and_s3_block_public_access_are_detected() -> None:
     plan = parse_plan({"resource_changes": [
         {"address": "aws_instance.web", "type": "aws_instance",

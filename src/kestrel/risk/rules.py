@@ -102,17 +102,17 @@ def evaluate(plan: TerraformPlan) -> RiskReport:
                 ("public-read" in after or "public-read-write" in after or
                  ("principal" in after and '"*"' in after)) else 90,
                 resource=change.address))
-            if change.resource_type == "aws_s3_bucket" and \
+        if change.resource_type == "aws_s3_bucket" and \
                 ("force_destroy" in after and "true" in after or
                  "versioning" in after and "enabled" not in after):
-                findings.append(Finding("S3-DATA-LOSS", "S3 data-protection control weakened", Severity.HIGH,
-                f"{change.address} permits destructive deletion or lacks versioning.", evidence,
-                "Retain versioning and disable force_destroy for protected buckets.", resource=change.address))
-            if change.resource_type == "aws_s3_bucket_lifecycle_configuration" and \
+            findings.append(Finding("S3-DATA-LOSS", "S3 data-protection control weakened", Severity.HIGH,
+            f"{change.address} permits destructive deletion or lacks versioning.", evidence,
+            "Retain versioning and disable force_destroy for protected buckets.", resource=change.address))
+        if change.resource_type == "aws_s3_bucket_lifecycle_configuration" and \
                 any(value in after for value in ("days': 1", "days': 0", "days\": 1", "days\": 0")):
-                findings.append(Finding("S3-LIFECYCLE-DATA-LOSS", "S3 lifecycle may delete data immediately", Severity.CRITICAL,
-                f"{change.address} contains a one-day-or-less expiration rule.", evidence,
-                "Review lifecycle expiration against retention requirements.", resource=change.address))
+            findings.append(Finding("S3-LIFECYCLE-DATA-LOSS", "S3 lifecycle may delete data immediately", Severity.CRITICAL,
+            f"{change.address} contains a one-day-or-less expiration rule.", evidence,
+            "Review lifecycle expiration against retention requirements.", resource=change.address))
         if change.resource_type == "aws_db_instance" and isinstance(change.after, dict) and \
                 change.after.get("storage_encrypted") is not True:
             findings.append(Finding("RDS-UNENCRYPTED", "RDS storage is not encrypted", Severity.HIGH,
