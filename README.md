@@ -20,9 +20,9 @@ Try the included examples without an AWS account, API key, or network access:
 ```bash
 python -m pip install -e .
 kestrel analyze examples/safe-plan.json --mock --no-aws
-# APPROVE
-kestrel analyze examples/risky-plan.json --mock --no-aws
-# BLOCK
+# FINAL VERDICT: APPROVE
+kestrel analyze examples/risky/plan.json --mock --no-aws
+# FINAL VERDICT: BLOCK
 ```
 
 The risky example demonstrates findings such as public SSH access, public S3 access, and unsafe database configuration.
@@ -31,14 +31,14 @@ The risky example demonstrates findings such as public SSH access, public S3 acc
 
 ![Kestrel infrastructure security architecture infographic](docs/kestrel-architecture.svg)
 
-The infographic follows the implemented `kestrel analyze` workflow. The CLI loads and redacts a Terraform plan, deterministic rules calculate the verdict, and the bounded LangGraph agent optionally gathers evidence through validated read-only tools. Agent observations are added to the console or JSON report; they do not downgrade the deterministic verdict. `KESTREL_MAX_AGENT_STEPS` limits the investigation loop.
+The infographic follows the implemented `kestrel analyze` workflow. The CLI loads and redacts a Terraform plan, deterministic rules calculate the verdict, and the bounded LangGraph agent optionally gathers evidence through registered read-only tools. The console report shows the verdict and deterministic findings; JSON output also includes recorded agent steps. Agent observations do not change the deterministic verdict. `KESTREL_MAX_AGENT_STEPS` limits the investigation loop.
 
 ### How the Pieces Fit Together
 
 | Component | Location | Responsibility |
 |---|---|---|
 | Terraform parsing | `terraform/` | Read plan JSON and normalize resource changes |
-| Secret redaction | `terraform/evidence.py` | Remove sensitive values before they travel further |
+| Secret redaction | `terraform/models.py`, `terraform/parser.py` | Apply Terraform sensitivity masks and redact secret-like fields before they travel further |
 | Risk checks | `risk/rules.py` | Apply explainable rules and create findings |
 | Agent loop | `agent/planner.py` | Run the bounded LangGraph investigation cycle |
 | Tool registry | `tools/` | Register tools and validate inputs and outputs |
@@ -51,8 +51,8 @@ The infographic follows the implemented `kestrel analyze` workflow. The CLI load
 The V1 deterministic engine includes checks for:
 
 - Public SSH and RDP ingress, public database ports, and unrestricted ports
-- EC2 public IP assignment, IMDSv1, and disabled monitoring
-- S3 public access, public ACLs, missing versioning, and destructive lifecycle settings
+- Explicit EC2 public IP assignment, optional IMDSv2 tokens, and explicitly disabled monitoring
+- S3 public access, public ACLs, explicitly disabled inline versioning, and destructive lifecycle settings
 - RDS public accessibility, missing encryption, no backups, and missing final snapshots
 - IAM wildcard actions and resources
 - Encryption removal, root-volume deletion, and destructive resource changes
@@ -174,6 +174,7 @@ Kestrel is a focused V1 review agent, not a complete AWS security platform:
 - It does not yet provide comprehensive Security Hub coverage, IAM MFA analysis, stale credential detection, trust-policy analysis, public snapshot checks, or full network topology discovery.
 - Live AWS evidence depends on correct credentials, permissions, region, and resource identifiers.
 - LLM providers can be unavailable, return malformed output, or provide incomplete recommendations. Deterministic critical findings remain authoritative.
+- EC2 checks for IMDSv1 and disabled detailed monitoring require those insecure values to appear explicitly in the plan. S3 versioning checks do not yet cover a missing or separate `aws_s3_bucket_versioning` resource.
 - Kestrel does not replace Terraform validation, policy-as-code tooling, penetration testing, cloud monitoring, or human review for high-impact changes.
 
 These limitations are deliberate: V1 prioritizes bounded behavior, explainability, and safety over pretending to provide complete cloud governance coverage.
@@ -185,7 +186,7 @@ src/kestrel/
 ├── agent/       LangGraph orchestration, state, and prompts
 ├── aws/         Read-only boto3 clients and typed AWS models
 ├── llm/         OpenAI, Codex, Anthropic, Ollama, and mock providers
-├── reporting/   Rich console and JSON report renderers
+├── reporting/   Plain-text console and JSON report renderers
 ├── risk/        Deterministic rules and findings
 ├── terraform/   Plan parsing and secret-safe evidence extraction
 ├── tools/       Typed tool contracts, registry, and AWS tools

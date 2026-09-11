@@ -3,7 +3,7 @@
 | Threat | Mitigation |
 | --- | --- |
 | Prompt injection in Terraform descriptions | Plan content is data, redacted and separated from system policy; it cannot change tool permissions. |
-| Secret exposure | Recursive key-based redaction covers passwords, secrets, tokens, API keys, private keys, and access keys before evidence/reporting. |
+| Secret exposure | Terraform sensitivity masks and recursive key-based redaction cover marked values, passwords, secrets, tokens, API keys, private keys, and access keys before evidence/reporting. |
 | Malicious plan JSON | The parser accepts data only, avoids executing Terraform, and reports malformed input as a CLI error. |
 | LLM hallucination | Findings include Terraform or AWS evidence; deterministic critical findings remain authoritative. |
 | Tool misuse | Only registered read-only tools can run; unknown names and invalid arguments are rejected. |

@@ -146,7 +146,7 @@
     <rect x="1152" y="506" width="204" height="112" rx="12" fill="#ffffff" stroke="#caa4e2"/>
     <text x="1174" y="539" class="card-title">Report</text>
     <path d="M1177 558 h38 v39 h-38z M1184 570 h23 M1184 580 h23 M1184 590 h15" fill="none" stroke="#9333ea" stroke-width="2.5"/>
-    <text x="1230" y="574" class="card-copy">Rich console</text>
+    <text x="1230" y="574" class="card-copy">Plain-text console</text>
     <text x="1230" y="594" class="card-copy">or JSON for CI/CD</text>
   </g>
   <path d="M1072 268 H1142" class="line"/>
