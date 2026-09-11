@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 from kestrel.terraform.evidence import change_evidence
@@ -48,6 +49,33 @@ def _public_admin_port(value: Any) -> str | None:
     return None
 
 
+def _public_s3_policy(value: Any) -> bool:
+    if isinstance(value, str):
+        try:
+            return _public_s3_policy(json.loads(value))
+        except (json.JSONDecodeError, TypeError):
+            return False
+    if isinstance(value, dict):
+        effect = value.get("Effect", value.get("effect"))
+        principal = value.get("Principal", value.get("principal"))
+        if effect == "Allow" and (principal == "*" or _contains_wildcard(principal)):
+            return True
+        return any(_public_s3_policy(child) for child in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_public_s3_policy(child) for child in value)
+    return False
+
+
+def _contains_wildcard(value: Any) -> bool:
+    if value == "*":
+        return True
+    if isinstance(value, dict):
+        return any(_contains_wildcard(child) for child in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_contains_wildcard(child) for child in value)
+    return False
+
+
 def evaluate(plan: TerraformPlan) -> RiskReport:
     findings: list[Finding] = []
     for change in plan.resource_changes:
@@ -90,17 +118,20 @@ def evaluate(plan: TerraformPlan) -> RiskReport:
             findings.append(Finding("IAM-WILDCARD", "Wildcard IAM permission", Severity.HIGH,
                 f"{change.address} contains a wildcard IAM action or resource.", evidence,
                 "Use least-privilege actions and resource ARNs.", resource=change.address))
-        if change.resource_type in {"aws_s3_bucket", "aws_s3_bucket_public_access_block"} and \
+        s3_public_policy = (change.resource_type == "aws_s3_bucket_policy" and
+                            _public_s3_policy(change.after))
+        if (change.resource_type in {"aws_s3_bucket", "aws_s3_bucket_public_access_block"} or
+                s3_public_policy) and \
                 (_bool_field(change.after, {"block_public_acls", "block_public_policy",
                                              "ignore_public_acls", "restrict_public_buckets"}, False)
                  or ("false" in after and "true" in _text(change.before))
                  or "public-read" in after or "public-read-write" in after
-                 or ("principal" in after and '"*"' in after)):
+                 or s3_public_policy):
             findings.append(Finding("S3-PUBLIC", "S3 public access weakening", Severity.CRITICAL,
                 f"{change.address} weakens S3 public access controls.", evidence,
                 "Keep all public access block settings enabled.", confidence=99 if
                 ("public-read" in after or "public-read-write" in after or
-                 ("principal" in after and '"*"' in after)) else 90,
+                 s3_public_policy) else 90,
                 resource=change.address))
         if change.resource_type == "aws_s3_bucket" and \
                 ("force_destroy" in after and "true" in after or
@@ -133,8 +164,9 @@ def evaluate(plan: TerraformPlan) -> RiskReport:
             findings.append(Finding("RDS-NO-BACKUPS", "RDS automated backups are disabled", Severity.MEDIUM,
                 f"{change.address} has zero days of backup retention.", evidence,
                 "Configure automated backup retention for recovery.", resource=change.address))
+        deletion_config = change.before if change.after is None else change.after
         if change.resource_type == "aws_db_instance" and change.destructive and \
-                isinstance(change.after, dict) and not change.after.get("final_snapshot_identifier"):
+                isinstance(deletion_config, dict) and deletion_config.get("skip_final_snapshot") is True:
             findings.append(Finding("RDS-NO-FINAL-SNAPSHOT", "RDS deletion has no final snapshot", Severity.HIGH,
                 f"{change.address} is deleted without a final snapshot identifier.", evidence,
                 "Require a final snapshot before deleting production data.", resource=change.address))

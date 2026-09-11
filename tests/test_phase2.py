@@ -46,6 +46,18 @@ def test_parser_redacts_common_secret_fields() -> None:
     assert after["safe"] == "v"
 
 
+def test_parser_honors_terraform_sensitive_masks() -> None:
+    item = change("aws_instance.app", "aws_instance", ["update"],
+                  before={"user_data": "old-secret", "tags": {"Name": "app"}},
+                  after={"user_data": "new-secret", "tags": {"Name": "app"}})
+    item["change"]["before_sensitive"] = {"user_data": True, "tags": {}}
+    item["change"]["after_sensitive"] = {"user_data": True, "tags": {}}
+    resource = parse_plan({"resource_changes": [item]}).resource_changes[0]
+    assert resource.before["user_data"] == "[REDACTED]"
+    assert resource.after["user_data"] == "[REDACTED]"
+    assert resource.after["tags"]["Name"] == "app"
+
+
 @pytest.mark.parametrize(("port", "title"), [(22, "Public SSH access"), (3389, "Public RDP access")])
 def test_public_management_ports_are_critical(port: int, title: str) -> None:
     report = evaluate(parse_plan({"resource_changes": [change(
@@ -66,6 +78,27 @@ def test_risk_rules_cover_iam_s3_encryption_and_destroy() -> None:
     ]})
     rule_ids = {finding.rule_id for finding in evaluate(plan).findings}
     assert {"IAM-WILDCARD", "S3-PUBLIC", "ENCRYPTION-REMOVED", "DESTRUCTIVE-CHANGE"} <= rule_ids
+
+
+@pytest.mark.parametrize("policy", [
+    {"Statement": [{"Effect": "Allow", "Principal": "*", "Action": "s3:GetObject"}]},
+    json.dumps({"Statement": [{"Effect": "Allow", "Principal": {"AWS": "*"},
+                                "Action": "s3:GetObject"}]}),
+])
+def test_public_s3_bucket_policy_is_critical(policy: Any) -> None:
+    report = evaluate(parse_plan({"resource_changes": [change(
+        "aws_s3_bucket_policy.public", "aws_s3_bucket_policy", ["create"],
+        after={"policy": policy})]}))
+    finding = next(item for item in report.findings if item.rule_id == "S3-PUBLIC")
+    assert finding.severity.name == "CRITICAL"
+    assert report.verdict == "BLOCK"
+
+
+def test_rds_delete_with_skip_final_snapshot_is_reported() -> None:
+    report = evaluate(parse_plan({"resource_changes": [change(
+        "aws_db_instance.db", "aws_db_instance", ["delete"],
+        before={"skip_final_snapshot": True}, after=None)]}))
+    assert "RDS-NO-FINAL-SNAPSHOT" in {item.rule_id for item in report.findings}
 
 
 class FinalProvider:
@@ -93,6 +126,22 @@ def test_agent_rejects_invalid_tool_and_bounds_steps() -> None:
     assert state.rounds == 2
     assert len(state.observations) == 2
     assert state.observations[1]["error"].startswith("duplicate")
+
+
+def test_agent_can_reuse_tool_with_different_arguments() -> None:
+    registry = ToolRegistry()
+    registry.register(Tool("read", "read resource", lambda arguments: arguments))
+
+    class MultiResourceProvider:
+        def decide(self, context: AgentContext) -> Decision:
+            assert any(tool["name"] == "read" for tool in context.available_tools)
+            resource_id = f"resource-{len(context.observations) + 1}"
+            return Decision("tool", "read", {"id": resource_id}, "Read next resource")
+
+    state = run_loop(MultiResourceProvider(), registry, max_rounds=2,
+                     context=AgentContext([], registry.definitions(), [], {}))
+    assert [item["arguments"]["id"] for item in state.observations] == [
+        "resource-1", "resource-2"]
 
 
 def test_registry_rejects_mutating_tool() -> None:

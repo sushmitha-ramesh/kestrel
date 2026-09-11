@@ -35,17 +35,22 @@ class TerraformPlan:
     variables: dict[str, Any] = field(default_factory=dict)
 
 
-def _redact(value: Any, key: str = "") -> Any:
+def _redact(value: Any, key: str = "", sensitive_mask: Any = None) -> Any:
+    if sensitive_mask is True:
+        return "[REDACTED]"
     sensitive = ("secret", "password", "token", "api_key", "private_key", "access_key", "credential")
     if any(word in key.lower() for word in sensitive):
         return "[REDACTED]"
     if isinstance(value, dict):
-        return {k: _redact(v, k) for k, v in value.items()}
+        dict_masks = sensitive_mask if isinstance(sensitive_mask, dict) else {}
+        return {k: _redact(v, k, dict_masks.get(k)) for k, v in value.items()}
     if isinstance(value, list):
-        return [_redact(v, key) for v in value]
+        list_masks = sensitive_mask if isinstance(sensitive_mask, list) else []
+        return [_redact(v, key, list_masks[index] if index < len(list_masks) else None)
+                for index, v in enumerate(value)]
     return value
 
 
-def redact(value: Any) -> Any:
+def redact(value: Any, sensitive_mask: Any = None) -> Any:
     """Return a recursively redacted copy suitable for evidence or output."""
-    return _redact(value)
+    return _redact(value, sensitive_mask=sensitive_mask)

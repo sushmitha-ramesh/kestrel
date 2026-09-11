@@ -21,12 +21,9 @@ def run_loop(provider: Provider, registry: ToolRegistry, max_rounds: int = 3,
     def step(state: GraphState) -> dict[str, Any]:
         if state["rounds"] >= max_rounds:
             return {"final": True}
-        used_tools = {item.get("tool") for item in state["observations"] if item.get("tool")}
-        available_tools = [tool for tool in base_context.available_tools
-                           if tool.get("name") not in used_tools]
         decision: Decision = provider.decide(AgentContext(
             state["observations"],
-            available_tools,
+            base_context.available_tools,
             base_context.deterministic_findings,
             base_context.plan_summary,
         ))
